@@ -120,7 +120,8 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
   const [kingCount,       setKingCount]      = useState(0);
   const [adLoading,       setAdLoading]      = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState([]);
-  const [turnIndex,       setTurnIndex]      = useState(0);
+  const [turnIndex,        setTurnIndex]       = useState(0);
+  const [trackingEnabled,  setTrackingEnabled] = useState(false);
 
   const flipAnim    = useRef(new Animated.Value(0)).current;
   const ruleOpacity = useRef(new Animated.Value(0)).current;
@@ -142,9 +143,9 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
     setSelectedPlayers([]);
   }, [flipAnim, ruleOpacity]);
 
-  // ルール表示時に自動で「飲む人」を選択
+  // ルール表示時に自動で「飲む人」を選択（記録ONの場合のみ）
   useEffect(() => {
-    if (!ruleVisible || !currentCard || n === 0) return;
+    if (!ruleVisible || !currentCard || n === 0 || !trackingEnabled) return;
     const mode = getDrinkMode(currentCard.value);
     const ti   = turnIndex % n;
 
@@ -205,8 +206,8 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
     const isLastCard = deck.length === 0;
     const isKing     = currentCard?.value === 'K';
 
-    // 飲む人のカウントを記録
-    if (selectedPlayers.length > 0) {
+    // 飲む人のカウントを記録（記録ONの場合のみ）
+    if (trackingEnabled && selectedPlayers.length > 0) {
       addDrinkMany(selectedPlayers);
     }
 
@@ -283,8 +284,8 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
   const isRed = currentCard && (currentCard.suit === '♥' || currentCard.suit === '♦');
   const mode  = currentCard ? getDrinkMode(currentCard.value) : null;
 
-  // プレイヤーUIを表示するか
-  const showPlayerUI = mode !== null && n > 0;
+  // プレイヤーUIを表示するか（記録ONかつプレイヤーがいる場合のみ）
+  const showPlayerUI = trackingEnabled && mode !== null && n > 0;
 
   // 現在プレイヤーの表示名
   const currentPlayerLabel = currentPlayer
@@ -315,6 +316,20 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
             <Text style={styles.resetText}>リセット</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 記録トグル */}
+        <TouchableOpacity
+          style={[styles.trackingToggle, trackingEnabled && styles.trackingToggleOn]}
+          onPress={() => setTrackingEnabled(v => !v)}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.trackingIcon, trackingEnabled && styles.trackingIconOn]}>
+            📊
+          </Text>
+          <Text style={[styles.trackingLabel, trackingEnabled && styles.trackingLabelOn]}>
+            飲んだ回数を記録: {trackingEnabled ? 'ON' : 'OFF'}
+          </Text>
+        </TouchableOpacity>
 
         {/* 現在のプレイヤーバナー */}
         {currentPlayerLabel && !ruleVisible && (
@@ -436,6 +451,13 @@ const styles = StyleSheet.create({
   title:     { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 1 },
   resetBtn:  { padding: 8 },
   resetText: { color: '#ef9a9a', fontSize: 13 },
+
+  trackingToggle:    { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, backgroundColor: '#ffffff0d', borderRadius: 100, paddingHorizontal: 16, paddingVertical: 7, marginBottom: 6, borderWidth: 1, borderColor: '#ffffff18' },
+  trackingToggleOn:  { backgroundColor: '#1b5e2033', borderColor: '#66bb6a66' },
+  trackingIcon:      { fontSize: 13 },
+  trackingIconOn:    {},
+  trackingLabel:     { color: '#ffffff44', fontSize: 12 },
+  trackingLabelOn:   { color: '#66bb6a', fontWeight: '600' },
 
   turnBanner: { backgroundColor: '#ffd54f22', borderRadius: 100, paddingHorizontal: 20, paddingVertical: 7, alignSelf: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#ffd54f44' },
   turnText:   { color: '#ffd54f', fontSize: 14, fontWeight: 'bold' },
