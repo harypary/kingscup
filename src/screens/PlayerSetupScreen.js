@@ -26,7 +26,12 @@ export default function PlayerSetupScreen({ unlockLevel, maxPlayers, onStart, on
       setCount(n);
       return;
     }
+    // 解放は順番通り（Lv0→Lv1→Lv2）
     const targetLevel = n <= 8 ? 1 : 2;
+    if (targetLevel > unlockLevel + 1) {
+      Alert.alert('順番に解放が必要です', 'まず広告を見て8人まで解放してください。');
+      return;
+    }
     const limitLabel  = n <= 8 ? '8人' : '10人';
     const showAd      = targetLevel === 1 ? showLv1Ad : showLv2Ad;
 
@@ -46,7 +51,7 @@ export default function PlayerSetupScreen({ unlockLevel, maxPlayers, onStart, on
         },
       ]
     );
-  }, [maxPlayers, showLv1Ad, showLv2Ad, unlockMore]);
+  }, [maxPlayers, unlockLevel, showLv1Ad, showLv2Ad, unlockMore]);
 
   const handleStart = useCallback(() => {
     const config = ALL_PLAYER_IDS.slice(0, count).map(id => ({

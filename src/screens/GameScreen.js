@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { CardBack, CardFront } from '../components/PlayingCard';
 import { createDeck } from '../data/rules';
-import { useInterstitialAd, useRewardedAd, AD_UNITS } from '../hooks/useAds';
+import { useInterstitialAd, AD_UNITS } from '../hooks/useAds';
 
 const { width: SW } = Dimensions.get('window');
 const CARD_W = Math.min(SW * 0.52, 200);
