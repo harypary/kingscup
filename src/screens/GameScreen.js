@@ -11,80 +11,125 @@ const { width: SW } = Dimensions.get('window');
 const CARD_W = Math.min(SW * 0.52, 200);
 const CARD_H = CARD_W * 1.4;
 
-// カードに対応するプレイヤー選択モード
-function getPlayerMode(cardValue) {
-  if (cardValue === '2') return 'nominate';   // 全員から1人指名
-  if (cardValue === '4') return 'female';     // 女性のみ
-  if (cardValue === '5') return 'leftright';  // 左右2人
-  if (cardValue === '6') return 'male';       // 男性のみ
-  if (cardValue === '8') return 'partner';    // パートナー選択
-  return null;
+// カード値 → 飲む人のモード
+// auto_*  : 自動選択（事前決定）
+// select  : 手動選択（ユーザがタップ）
+function getDrinkMode(cardValue) {
+  switch (cardValue) {
+    case 'A':     return 'auto_others';  // 引いた人以外全員
+    case '2':     return 'nominate';     // 1人指名
+    case '3':     return 'auto_self';    // 引いた人
+    case '4':     return 'auto_female';  // 女性全員
+    case '5':     return 'auto_lr';      // 左右2人
+    case '6':     return 'auto_male';    // 男性全員
+    case '7':     return 'select';       // 遅かった人
+    case '8':     return 'partner';      // 1人選択（パートナー）
+    case '9':     return 'select';       // 負けた人
+    case '10':    return 'select';       // 負けた人
+    case 'J':     return 'select';       // ルール破った人
+    case 'Q':     return 'select';       // 答えた人
+    case 'K':     return null;           // なし（カップに注ぐ）
+    case 'JOKER': return 'auto_all';     // 全員
+    default:      return null;
+  }
 }
 
-// プレイヤー選択UIコンポーネント
-function PlayerSelector({ mode, players, selected, onToggle }) {
-  let filtered = players;
-  if (mode === 'female') filtered = players.filter(p => p.gender === 'female');
-  if (mode === 'male')   filtered = players.filter(p => p.gender === 'male');
-  if (filtered.length === 0) return null;
+const DRINK_LABEL = {
+  auto_others: '引いた人以外が全員飲む',
+  auto_self:   '引いた人が飲む',
+  auto_female: '女性プレイヤーが飲む',
+  auto_male:   '男性プレイヤーが飲む',
+  auto_lr:     '左右のプレイヤーが飲む',
+  auto_all:    '全員が飲む！',
+  nominate:    '飲ませる1人を選んでください',
+  partner:     'パートナーを1人選んでください',
+  select:      '飲む人をタップしてください',
+};
 
-  const label = {
-    nominate:  '誰を指名しますか？',
-    female:    '女性プレイヤー（飲んだ人をタップ）',
-    leftright: '左右の人（飲んだ人をタップ）',
-    male:      '男性プレイヤー（飲んだ人をタップ）',
-    partner:   'パートナーを選んでください',
-  }[mode] || '';
+// プレイヤー選択UI
+function PlayerSelector({ mode, players, selected, onToggle }) {
+  if (!players || players.length === 0) return null;
+  const isAuto = mode && mode.startsWith('auto_');
+  const label  = DRINK_LABEL[mode] || '飲む人を選んでください';
 
   return (
     <View style={ps.wrap}>
       <Text style={ps.label}>{label}</Text>
       <View style={ps.grid}>
-        {filtered.map(p => {
-          const isOn = selected.includes(p.id);
+        {players.map(p => {
+          const isOn     = selected.includes(p.id);
+          const isMale   = p.gender === 'male';
+          const isFemale = p.gender === 'female';
+          const displayName = (p.name && p.name !== `プレイヤー${p.id}`) ? p.name : p.id;
           return (
             <TouchableOpacity
               key={p.id}
-              style={[ps.btn, isOn && ps.btnOn]}
-              onPress={() => onToggle(p.id)}
-              activeOpacity={0.75}
+              style={[
+                ps.btn,
+                isMale   && ps.btnMale,
+                isFemale && ps.btnFemale,
+                isOn && ps.btnOn,
+                isOn && isMale   && ps.btnMaleOn,
+                isOn && isFemale && ps.btnFemaleOn,
+              ]}
+              onPress={() => !isAuto && onToggle(p.id)}
+              activeOpacity={isAuto ? 1 : 0.75}
             >
-              <Text style={[ps.txt, isOn && ps.txtOn]}>{p.id}</Text>
-              {p.gender === 'male'   && <Text style={ps.gDot}>♂</Text>}
-              {p.gender === 'female' && <Text style={ps.gDot}>♀</Text>}
+              <Text style={[ps.txt, isOn && ps.txtOn]}>{displayName}</Text>
+              {isMale   && <Text style={[ps.gDot, ps.gDotMale]}>♂</Text>}
+              {isFemale && <Text style={[ps.gDot, ps.gDotFemale]}>♀</Text>}
             </TouchableOpacity>
           );
         })}
       </View>
+      {isAuto && <Text style={ps.autoNote}>※ 自動で計算されます</Text>}
     </View>
   );
 }
 
 const ps = StyleSheet.create({
-  wrap: { marginTop: 16, marginBottom: 4, width: '100%' },
-  label: { color: '#555', fontSize: 12, letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-  btn:  { width: 52, height: 52, borderRadius: 12, backgroundColor: '#f0f0f0', borderWidth: 1.5, borderColor: '#ddd', alignItems: 'center', justifyContent: 'center' },
-  btnOn: { backgroundColor: '#0d1b2a', borderColor: '#ffd54f' },
-  txt:  { color: '#333', fontSize: 18, fontWeight: 'bold' },
-  txtOn: { color: '#ffd54f' },
-  gDot: { fontSize: 9, color: '#888', marginTop: 1 },
+  wrap:       { marginTop: 14, marginBottom: 4, width: '100%' },
+  label:      { color: '#444', fontSize: 12, letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },
+  grid:       { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  btn:        { minWidth: 52, height: 52, borderRadius: 12, backgroundColor: '#f0f0f0', borderWidth: 1.5, borderColor: '#ddd', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  btnOn:      { backgroundColor: '#9e9e9e', borderColor: '#757575' },
+
+  // 男性（青）
+  btnMale:    { backgroundColor: '#e3f2fd', borderColor: '#90caf9' },
+  btnMaleOn:  { backgroundColor: '#1565c0', borderColor: '#1565c0' },
+
+  // 女性（赤）
+  btnFemale:    { backgroundColor: '#fce4ec', borderColor: '#ef9a9a' },
+  btnFemaleOn:  { backgroundColor: '#c62828', borderColor: '#c62828' },
+
+  txt:         { color: '#333', fontSize: 15, fontWeight: 'bold' },
+  txtOn:       { color: 'white' },
+
+  gDot:        { fontSize: 9, marginTop: 1 },
+  gDotMale:    { color: '#1565c0' },
+  gDotFemale:  { color: '#c62828' },
+
+  autoNote:    { color: '#888', fontSize: 11, textAlign: 'center', marginTop: 8 },
 });
 
-export default function GameScreen({ rules, useJoker, jokerRule, players, addDrink, onBack, onGameOver }) {
-  const [deck,           setDeck]          = useState(() => createDeck(useJoker));
-  const [currentCard,    setCurrentCard]   = useState(null);
-  const [ruleVisible,    setRuleVisible]   = useState(false);
-  const [flipping,       setFlipping]      = useState(false);
-  const [kingCount,      setKingCount]     = useState(0);
-  const [adLoading,      setAdLoading]     = useState(false);
+export default function GameScreen({ rules, useJoker, jokerRule, players, addDrinkMany, onBack, onGameOver }) {
+  const [deck,            setDeck]           = useState(() => createDeck(useJoker));
+  const [currentCard,     setCurrentCard]    = useState(null);
+  const [ruleVisible,     setRuleVisible]    = useState(false);
+  const [flipping,        setFlipping]       = useState(false);
+  const [kingCount,       setKingCount]      = useState(0);
+  const [adLoading,       setAdLoading]      = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState([]);
+  const [turnIndex,       setTurnIndex]      = useState(0);
 
   const flipAnim    = useRef(new Animated.Value(0)).current;
   const ruleOpacity = useRef(new Animated.Value(0)).current;
 
   const { show: showKAd }        = useInterstitialAd(AD_UNITS.K_INTER);
   const { show: showGameOverAd } = useInterstitialAd(AD_UNITS.GAME_OVER_INTER);
+
+  const n = players.length;
+  const currentPlayer = n > 0 ? players[turnIndex % n] : null;
 
   const total = deck.length + (currentCard ? 1 : 0);
 
@@ -97,45 +142,55 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
     setSelectedPlayers([]);
   }, [flipAnim, ruleOpacity]);
 
-  // ruleVisibleになったとき、性別カードは該当プレイヤーを自動選択
+  // ルール表示時に自動で「飲む人」を選択
   useEffect(() => {
-    if (!ruleVisible || !currentCard) return;
-    const mode = getPlayerMode(currentCard.value);
-    if (mode === 'female') {
-      setSelectedPlayers(players.filter(p => p.gender === 'female').map(p => p.id));
-    } else if (mode === 'male') {
-      setSelectedPlayers(players.filter(p => p.gender === 'male').map(p => p.id));
-    } else {
-      setSelectedPlayers([]);
+    if (!ruleVisible || !currentCard || n === 0) return;
+    const mode = getDrinkMode(currentCard.value);
+    const ti   = turnIndex % n;
+
+    switch (mode) {
+      case 'auto_self':
+        setSelectedPlayers(currentPlayer ? [currentPlayer.id] : []);
+        break;
+      case 'auto_others':
+        setSelectedPlayers(players.filter(p => p.id !== currentPlayer?.id).map(p => p.id));
+        break;
+      case 'auto_all':
+        setSelectedPlayers(players.map(p => p.id));
+        break;
+      case 'auto_female':
+        setSelectedPlayers(players.filter(p => p.gender === 'female').map(p => p.id));
+        break;
+      case 'auto_male':
+        setSelectedPlayers(players.filter(p => p.gender === 'male').map(p => p.id));
+        break;
+      case 'auto_lr': {
+        if (n >= 2) {
+          const left  = players[(ti - 1 + n) % n].id;
+          const right = players[(ti + 1) % n].id;
+          setSelectedPlayers(left === right ? [left] : [left, right]);
+        } else {
+          setSelectedPlayers([]);
+        }
+        break;
+      }
+      default:
+        setSelectedPlayers([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ruleVisible]);
-
-  // プレイヤーボタンのトグル（パートナー・指名は1人のみ、他は複数可）
-  const handleTogglePlayer = useCallback((id) => {
-    const mode = getPlayerMode(currentCard?.value);
-    if (mode === 'nominate' || mode === 'partner') {
-      // 単一選択
-      setSelectedPlayers(prev => prev.includes(id) ? [] : [id]);
-    } else {
-      // 複数選択
-      setSelectedPlayers(prev =>
-        prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-      );
-    }
-  }, [currentCard]);
 
   // カードをめくる
   const handleDraw = useCallback(() => {
     if (flipping || ruleVisible || deck.length === 0) return;
     const [top, ...rest] = deck;
-    if (top.value === 'K') setKingCount(n => n + 1);
+    if (top.value === 'K') setKingCount(prev => prev + 1);
     setCurrentCard(top);
     setDeck(rest);
     setFlipping(true);
 
     Animated.sequence([
-      Animated.timing(flipAnim, { toValue: 0.5, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      Animated.timing(flipAnim, { toValue: 0.5, duration: 220, easing: Easing.in(Easing.quad),  useNativeDriver: true }),
       Animated.timing(flipAnim, { toValue: 1,   duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start(() => {
       setTimeout(() => {
@@ -145,13 +200,18 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
     });
   }, [deck, flipping, ruleVisible, flipAnim, ruleOpacity]);
 
-  // OKボタン
+  // OK ボタン
   const handleCloseRule = useCallback(() => {
     const isLastCard = deck.length === 0;
     const isKing     = currentCard?.value === 'K';
 
-    // 選択されたプレイヤーの回数をカウント
-    selectedPlayers.forEach(id => addDrink(id));
+    // 飲む人のカウントを記録
+    if (selectedPlayers.length > 0) {
+      addDrinkMany(selectedPlayers);
+    }
+
+    // 次のプレイヤーのターンへ
+    setTurnIndex(prev => prev + 1);
     setSelectedPlayers([]);
 
     const doReset = () => {
@@ -168,9 +228,22 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
     } else {
       doReset();
     }
-  }, [deck.length, currentCard, selectedPlayers, addDrink, ruleOpacity, resetCardState, showGameOverAd, showKAd, onGameOver]);
+  }, [deck.length, currentCard, selectedPlayers, addDrinkMany, ruleOpacity, resetCardState, showGameOverAd, showKAd, onGameOver]);
 
-  // 戻るボタン（中断確認）
+  // 手動選択のトグル
+  const handleTogglePlayer = useCallback((id) => {
+    const mode = getDrinkMode(currentCard?.value);
+    if (mode === 'nominate' || mode === 'partner') {
+      // 1人のみ
+      setSelectedPlayers(prev => prev.includes(id) ? [] : [id]);
+    } else {
+      setSelectedPlayers(prev =>
+        prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      );
+    }
+  }, [currentCard]);
+
+  // 戻るボタン
   const handleBack = useCallback(() => {
     Alert.alert('ゲームを中断', 'ホームに戻りますか？\n（回数記録は保持されます）', [
       { text: 'キャンセル', style: 'cancel' },
@@ -184,34 +257,41 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
       { text: 'キャンセル', style: 'cancel' },
       {
         text: 'リセット', style: 'destructive',
-        onPress: () => { resetCardState(); setDeck(createDeck(useJoker)); setKingCount(0); },
+        onPress: () => {
+          resetCardState();
+          setDeck(createDeck(useJoker));
+          setKingCount(0);
+          setTurnIndex(0);
+        },
       },
     ]);
   }, [resetCardState, useJoker]);
 
-  // アニメーション補間
-  const backRotate  = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg',   '90deg',  '90deg'] });
-  const frontRotate = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-90deg', '-90deg', '0deg']  });
+  // フリップアニメーション補間
+  const backRotate   = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg',   '90deg',  '90deg'] });
+  const frontRotate  = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-90deg', '-90deg', '0deg']  });
   const backOpacity  = flipAnim.interpolate({ inputRange: [0, 0.45, 0.5, 1], outputRange: [1, 1, 0, 0] });
   const frontOpacity = flipAnim.interpolate({ inputRange: [0, 0.5, 0.55, 1], outputRange: [0, 0, 1, 1] });
-  const cardLift  = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -16, 0] });
-  const cardScale = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.07,  1] });
+  const cardLift     = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -16, 0] });
+  const cardScale    = flipAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.07, 1] });
 
-  const rule   = currentCard
+  const rule  = currentCard
     ? (currentCard.value === 'JOKER'
         ? { title: 'ジョーカー 🃏', description: jokerRule?.trim() || '全員が飲む！', color: '#37474f' }
         : rules[currentCard.value])
     : null;
-  const isRed  = currentCard && (currentCard.suit === '♥' || currentCard.suit === '♦');
-  const mode   = currentCard ? getPlayerMode(currentCard.value) : null;
+  const isRed = currentCard && (currentCard.suit === '♥' || currentCard.suit === '♦');
+  const mode  = currentCard ? getDrinkMode(currentCard.value) : null;
 
-  // プレイヤーUIを表示するか（性別カードは該当者がいる場合のみ）
-  const showPlayerUI = (() => {
-    if (!mode || players.length === 0) return false;
-    if (mode === 'female') return players.some(p => p.gender === 'female');
-    if (mode === 'male')   return players.some(p => p.gender === 'male');
-    return true;
-  })();
+  // プレイヤーUIを表示するか
+  const showPlayerUI = mode !== null && n > 0;
+
+  // 現在プレイヤーの表示名
+  const currentPlayerLabel = currentPlayer
+    ? (currentPlayer.name && currentPlayer.name !== `プレイヤー${currentPlayer.id}`
+        ? currentPlayer.name
+        : `プレイヤー${currentPlayer.id}`)
+    : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -236,6 +316,14 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
           </TouchableOpacity>
         </View>
 
+        {/* 現在のプレイヤーバナー */}
+        {currentPlayerLabel && !ruleVisible && (
+          <View style={styles.turnBanner}>
+            <Text style={styles.turnText}>🎯 {currentPlayerLabel}の番</Text>
+          </View>
+        )}
+
+        {/* King カウンター */}
         {kingCount > 0 && (
           <View style={styles.kingBar}>
             <Text style={styles.kingText}>
@@ -244,7 +332,11 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
           </View>
         )}
 
-        <ScrollView contentContainerStyle={styles.main} scrollEnabled={ruleVisible} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.main}
+          scrollEnabled={ruleVisible}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.deckCount}>{total} / {useJoker ? 53 : 52} 枚</Text>
 
           {/* カードエリア */}
@@ -252,7 +344,12 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
             {deck.length > 2 && <View style={[styles.shadowCard, { width: CARD_W, height: CARD_H, top: 0, left: 0 }]} />}
             {deck.length > 1 && <View style={[styles.shadowCard, { width: CARD_W, height: CARD_H, top: 3, left: 3 }]} />}
             {deck.length > 0 && (
-              <TouchableOpacity onPress={handleDraw} disabled={flipping || ruleVisible} activeOpacity={0.88} style={{ position: 'absolute', top: 6, left: 6 }}>
+              <TouchableOpacity
+                onPress={handleDraw}
+                disabled={flipping || ruleVisible}
+                activeOpacity={0.88}
+                style={{ position: 'absolute', top: 6, left: 6 }}
+              >
                 <CardBack width={CARD_W} height={CARD_H} />
               </TouchableOpacity>
             )}
@@ -272,6 +369,11 @@ export default function GameScreen({ rules, useJoker, jokerRule, players, addDri
           {/* ルールパネル */}
           {ruleVisible && rule && currentCard ? (
             <Animated.View style={[styles.rulePanel, { opacity: ruleOpacity }]}>
+              {/* 誰が引いたか */}
+              {currentPlayerLabel && (
+                <Text style={styles.drawerLabel}>🎯 {currentPlayerLabel}が引いた</Text>
+              )}
+
               <View style={styles.ruleCardRow}>
                 {currentCard.value === 'JOKER' ? (
                   <Text style={styles.ruleCardValue}>🃏</Text>
@@ -327,19 +429,27 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
   adOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000cc', zIndex: 999, justifyContent: 'center', alignItems: 'center', gap: 16 },
   adOverlayText: { color: '#ffffff99', fontSize: 14 },
-  header:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+
+  header:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   backBtn:   { padding: 8 },
   backText:  { color: '#90caf9', fontSize: 14 },
   title:     { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 1 },
   resetBtn:  { padding: 8 },
   resetText: { color: '#ef9a9a', fontSize: 13 },
+
+  turnBanner: { backgroundColor: '#ffd54f22', borderRadius: 100, paddingHorizontal: 20, paddingVertical: 7, alignSelf: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#ffd54f44' },
+  turnText:   { color: '#ffd54f', fontSize: 14, fontWeight: 'bold' },
+
   kingBar:   { backgroundColor: '#ffffff12', borderRadius: 100, paddingHorizontal: 20, paddingVertical: 6, alignSelf: 'center', marginBottom: 8 },
   kingText:  { color: '#ffd54f', fontSize: 14, fontWeight: '600' },
-  main:      { alignItems: 'center', paddingTop: 36, paddingBottom: 40, flexGrow: 1 },
+
+  main:      { alignItems: 'center', paddingTop: 24, paddingBottom: 40, flexGrow: 1 },
   deckCount: { color: '#ffffff66', fontSize: 13, letterSpacing: 1, marginBottom: 16 },
   shadowCard: { position: 'absolute', borderRadius: 12, backgroundColor: '#1a237e', borderWidth: 1.5, borderColor: '#3949ab' },
   hint:      { color: '#ffffff44', fontSize: 13, letterSpacing: 1, marginTop: 24 },
-  rulePanel: { marginTop: 24, width: '100%', backgroundColor: '#fafafa', borderRadius: 20, padding: 22, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 8 },
+
+  rulePanel:      { marginTop: 20, width: '100%', backgroundColor: '#fafafa', borderRadius: 20, padding: 22, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 8 },
+  drawerLabel:    { color: '#888', fontSize: 12, letterSpacing: 0.5, marginBottom: 10 },
   ruleCardRow:    { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 12 },
   ruleCardValue:  { fontSize: 36, fontWeight: 'bold', fontFamily: 'serif' },
   ruleCardSuit:   { fontSize: 24 },

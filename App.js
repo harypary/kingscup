@@ -18,7 +18,7 @@ export default function App() {
 
   const {
     players, unlockLevel, maxPlayers, loaded: playersLoaded,
-    setPlayerConfig, addDrink, resetCounts, unlockMore,
+    setPlayerConfig, addDrink, addDrinkMany, resetCounts, unlockMore,
   } = usePlayers();
 
   if (!rulesLoaded || !playersLoaded) {
@@ -54,7 +54,7 @@ export default function App() {
           useJoker={useJoker}
           jokerRule={jokerRule}
           players={players}
-          addDrink={addDrink}
+          addDrinkMany={addDrinkMany}
           onBack={() => setScreen('home')}
           onGameOver={() => setScreen('result')}
         />

@@ -6,7 +6,6 @@ const UNLOCK_KEY  = '@kingscup_unlock_v1';
 
 export const ALL_PLAYER_IDS = ['A','B','C','D','E','F','G','H','I','J'];
 
-// 解放レベルに対応する最大人数
 export function getMaxPlayers(level) {
   if (level >= 2) return 10;
   if (level >= 1) return 8;
@@ -37,9 +36,14 @@ export function usePlayers() {
   // 新ゲーム開始時に設定（カウントは既存を引き継ぐ）
   const setPlayerConfig = useCallback((config) => {
     setPlayersState(prev => {
-      const next = config.map(({ id, gender }) => {
+      const next = config.map(({ id, name, gender }) => {
         const existing = prev.find(p => p.id === id);
-        return { id, gender, count: existing?.count ?? 0 };
+        return {
+          id,
+          name: (name && name.trim()) ? name.trim() : `プレイヤー${id}`,
+          gender,
+          count: existing?.count ?? 0,
+        };
       });
       savePlayers(next);
       return next;
@@ -50,6 +54,17 @@ export function usePlayers() {
   const addDrink = useCallback((id) => {
     setPlayersState(prev => {
       const next = prev.map(p => p.id === id ? { ...p, count: p.count + 1 } : p);
+      savePlayers(next);
+      return next;
+    });
+  }, [savePlayers]);
+
+  // 複数人まとめて飲んだ（1回の状態更新で完結）
+  const addDrinkMany = useCallback((ids) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    setPlayersState(prev => {
+      const next = prev.map(p => idSet.has(p.id) ? { ...p, count: p.count + 1 } : p);
       savePlayers(next);
       return next;
     });
@@ -73,5 +88,5 @@ export function usePlayers() {
 
   const maxPlayers = getMaxPlayers(unlockLevel);
 
-  return { players, unlockLevel, maxPlayers, loaded, setPlayerConfig, addDrink, resetCounts, unlockMore };
+  return { players, unlockLevel, maxPlayers, loaded, setPlayerConfig, addDrink, addDrinkMany, resetCounts, unlockMore };
 }
