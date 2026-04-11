@@ -160,7 +160,8 @@ export function useRewardedAd(adUnitId) {
 
   const show = useCallback((onRewarded, onCancelled) => {
     if (!AdMobModule || !isLoaded.current || !adRef.current) {
-      onCancelled?.();
+      // Apple審査時や在庫がない場合は、UXを損ねないためリワードを付与する
+      onRewarded?.();
       return;
     }
     try {
@@ -186,11 +187,11 @@ export function useRewardedAd(adUnitId) {
           safeUnsub(unsubReward);
           safeUnsub(unsubClose);
           createAndLoad();
-          onCancelled?.();
+          onRewarded?.(); // 表示失敗時もリワード付与
         });
       }
     } catch (_) {
-      onCancelled?.();
+      onRewarded?.(); // 予期せぬエラーでもリワード付与
     }
   }, [createAndLoad]);
 

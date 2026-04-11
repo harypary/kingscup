@@ -1,0 +1,176 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  SafeAreaView, StatusBar, ScrollView, Alert, ActivityIndicator,
+} from 'react-native';
+import { useRewardedAd, AD_UNITS } from '../hooks/useAds';
+import { ALL_PLAYER_IDS } from '../hooks/usePlayers';
+
+const GENDER_OPTIONS = [
+  { value: 'none',   emoji: '❓' },
+  { value: 'male',   emoji: '♂️' },
+  { value: 'female', emoji: '♀️' },
+];
+
+export default function PlayerSetupScreen({ unlockLevel, maxPlayers, onStart, onBack, unlockMore }) {
+  const [count,      setCount]      = useState(Math.min(4, maxPlayers));
+  const [genders,    setGenders]    = useState({});
+  const [adLoading,  setAdLoading]  = useState(false);
+
+  // 解放レベルに応じて広告ユニットを切替（両方ロードして条件分岐で使用）
+  const { show: showLv1Ad } = useRewardedAd(AD_UNITS.RULES_REW);
+  const { show: showLv2Ad } = useRewardedAd(AD_UNITS.JOKER_REW);
+
+  const handleCountPress = useCallback((n) => {
+    if (n <= maxPlayers) {
+      setCount(n);
+      return;
+    }
+    const targetLevel = n <= 8 ? 1 : 2;
+    const limitLabel  = n <= 8 ? '8人' : '10人';
+    const showAd      = targetLevel === 1 ? showLv1Ad : showLv2Ad;
+
+    Alert.alert(
+      '📺  広告を見てプレイヤーを追加',
+      `広告を視聴すると${limitLabel}まで追加できます。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '広告を見る', onPress: () => {
+            setAdLoading(true);
+            showAd(
+              () => { setAdLoading(false); unlockMore(); setCount(n); },
+              () => { setAdLoading(false); Alert.alert('広告', '動画を最後まで視聴するとプレイ人数を増やせます。'); },
+            );
+          },
+        },
+      ]
+    );
+  }, [maxPlayers, showLv1Ad, showLv2Ad, unlockMore]);
+
+  const handleStart = useCallback(() => {
+    const config = ALL_PLAYER_IDS.slice(0, count).map(id => ({
+      id,
+      gender: genders[id] || 'none',
+    }));
+    onStart(config);
+  }, [count, genders, onStart]);
+
+  const selectedIds = ALL_PLAYER_IDS.slice(0, count);
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="light-content" backgroundColor="#0d1b2a" />
+
+      {adLoading && (
+        <View style={styles.adOverlay}>
+          <ActivityIndicator size="large" color="#ffd54f" />
+          <Text style={styles.adOverlayText}>広告を読み込み中...</Text>
+        </View>
+      )}
+
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <Text style={styles.backText}>← 戻る</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>👥  プレイヤー設定</Text>
+        <View style={{ width: 60 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* 人数選択 */}
+        <Text style={styles.sectionLabel}>参加人数</Text>
+        <View style={styles.countGrid}>
+          {[2,3,4,5,6,7,8,9,10].map(n => {
+            const isSelected = count === n;
+            const isLocked   = n > maxPlayers;
+            return (
+              <TouchableOpacity
+                key={n}
+                style={[styles.countBtn, isSelected && styles.countBtnSelected, isLocked && styles.countBtnLocked]}
+                onPress={() => handleCountPress(n)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.countBtnText, isSelected && styles.countBtnTextSel, isLocked && styles.countBtnTextLocked]}>
+                  {n}
+                </Text>
+                {isLocked && <Text style={styles.lockLabel}>{n <= 8 ? '🔒' : '🔒🔒'}</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {unlockLevel < 2 && (
+          <Text style={styles.unlockHint}>
+            {unlockLevel === 0
+              ? '🔒 広告視聴で8人まで・さらに10人まで増やせます'
+              : '🔒 広告視聴でさらに2人追加できます'}
+          </Text>
+        )}
+
+        {/* 性別設定 */}
+        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>性別設定（任意）</Text>
+        {selectedIds.map(id => {
+          const gender = genders[id] || 'none';
+          return (
+            <View key={id} style={styles.playerRow}>
+              <View style={styles.playerBadge}>
+                <Text style={styles.playerBadgeText}>{id}</Text>
+              </View>
+              <Text style={styles.playerLabel}>プレイヤー {id}</Text>
+              <View style={styles.genderToggle}>
+                {GENDER_OPTIONS.map(opt => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.genderBtn, gender === opt.value && styles.genderBtnActive]}
+                    onPress={() => setGenders(prev => ({ ...prev, [id]: opt.value }))}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.genderBtnText}>{opt.emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          );
+        })}
+
+        {/* スタート */}
+        <TouchableOpacity style={styles.startBtn} onPress={handleStart} activeOpacity={0.85}>
+          <Text style={styles.startBtnText}>🃏  ゲーム開始</Text>
+        </TouchableOpacity>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe:          { flex: 1, backgroundColor: '#0d1b2a' },
+  adOverlay:     { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000cc', zIndex: 999, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  adOverlayText: { color: '#ffffff99', fontSize: 14 },
+  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14 },
+  backBtn:       { padding: 6 },
+  backText:      { color: '#90caf9', fontSize: 14 },
+  headerTitle:   { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  content:       { paddingHorizontal: 20, paddingTop: 8 },
+  sectionLabel:  { color: '#ffffff66', fontSize: 12, letterSpacing: 1, marginBottom: 12 },
+  countGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  countBtn:      { width: 66, height: 66, borderRadius: 14, backgroundColor: '#ffffff10', borderWidth: 1.5, borderColor: '#ffffff18', alignItems: 'center', justifyContent: 'center' },
+  countBtnSelected: { backgroundColor: '#ffd54f22', borderColor: '#ffd54f' },
+  countBtnLocked:   { backgroundColor: '#ffffff06', borderColor: '#ffffff0a' },
+  countBtnText:     { color: 'white', fontSize: 22, fontWeight: 'bold' },
+  countBtnTextSel:  { color: '#ffd54f' },
+  countBtnTextLocked: { color: '#ffffff33' },
+  lockLabel:     { color: '#ffffff44', fontSize: 10, marginTop: 2 },
+  unlockHint:    { color: '#ffd54f66', fontSize: 12, marginTop: 10, textAlign: 'center', lineHeight: 18 },
+  playerRow:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff0d', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: '#ffffff14', gap: 12 },
+  playerBadge:   { width: 36, height: 36, borderRadius: 10, backgroundColor: '#ffd54f22', borderWidth: 1, borderColor: '#ffd54f44', alignItems: 'center', justifyContent: 'center' },
+  playerBadgeText: { color: '#ffd54f', fontSize: 16, fontWeight: 'bold' },
+  playerLabel:   { color: 'white', fontSize: 15, flex: 1 },
+  genderToggle:  { flexDirection: 'row', gap: 6 },
+  genderBtn:     { width: 36, height: 36, borderRadius: 10, backgroundColor: '#ffffff10', borderWidth: 1, borderColor: '#ffffff22', alignItems: 'center', justifyContent: 'center' },
+  genderBtnActive: { backgroundColor: '#3949ab44', borderColor: '#90caf9' },
+  genderBtnText: { fontSize: 16 },
+  startBtn:      { marginTop: 28, backgroundColor: '#ffd54f', borderRadius: 16, paddingVertical: 18, alignItems: 'center', shadowColor: '#ffd54f', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+  startBtnText:  { color: '#0d1b2a', fontSize: 18, fontWeight: 'bold', letterSpacing: 1 },
+});

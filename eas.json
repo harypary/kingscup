@@ -1,0 +1,35 @@
+{
+  "cli": {
+    "version": ">= 14.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "production": {
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "haryparybb@icloud.com",
+        "ascAppId": "6761371220",
+        "appleTeamId": "47BSX989JQ"
+      }
+    }
+  }
+}

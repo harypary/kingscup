@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.shoki.kingscup",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ja",
         "CFBundleLocalizations": [
@@ -32,7 +32,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.shoki.kingscup",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "com.google.android.gms.permission.AD_ID"
       ]
